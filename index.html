@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LPO Ranking Explorer</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="data.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue: #3b82f6; --blue-light: #dbeafe; --blue-dark: #1d4ed8;
+      --green: #10b981; --green-light: #d1fae5;
+      --amber: #f59e0b; --amber-light: #fef3c7;
+      --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb; --gray-300: #d1d5db;
+      --gray-400: #9ca3af; --gray-500: #6b7280; --gray-600: #4b5563;
+      --gray-700: #374151; --gray-800: #1f2937; --gray-900: #111827;
+      --slate-50: #f8fafc; --slate-200: #e2e8f0; --slate-500: #64748b; --slate-800: #1e293b;
+      --radius: 12px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-lg: 0 4px 12px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f1f5f9;
+      color: var(--slate-800);
+      line-height: 1.6;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .container { max-width: 1280px; margin: 0 auto; padding: 24px; }
+
+    /* Header */
+    .header {
+      text-align: center;
+      padding: 40px 24px 32px;
+      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+      color: white;
+      border-radius: 0 0 24px 24px;
+      margin-bottom: 32px;
+    }
+    .header h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.5px; }
+    .header .subtitle { font-size: 16px; color: #94a3b8; font-weight: 400; }
+    .header .listing-page { display: inline-block; background: rgba(255,255,255,0.1); padding: 4px 14px; border-radius: 20px; font-size: 13px; margin-top: 12px; color: #cbd5e1; }
+
+    /* Section */
+    .section {
+      background: white;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 28px;
+      margin-bottom: 24px;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .section-number {
+      width: 32px; height: 32px;
+      background: var(--blue);
+      color: white;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 14px;
+      flex-shrink: 0;
+    }
+    .section h2 { font-size: 20px; font-weight: 700; color: var(--gray-900); }
+    .section-subtitle { font-size: 14px; color: var(--slate-500); margin-bottom: 20px; margin-left: 44px; }
+
+    /* Executive Summary */
+    .exec-summary {
+      background: var(--slate-50);
+      border-left: 4px solid var(--blue);
+      padding: 16px 20px;
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 24px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--gray-700);
+    }
+    .exec-summary strong { color: var(--gray-900); }
+
+    /* Tier badges */
+    .tier-badges {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .tier-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tier-badge:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+    .tier-badge.active { border-color: currentColor; }
+    .tier-badge .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+    /* Ranking chart container */
+    .ranking-chart-wrapper {
+      height: 700px;
+      overflow-y: auto;
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      position: relative;
+    }
+    .ranking-chart-wrapper canvas { width: 100% !important; }
+
+    /* Theme cards */
+    .theme-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .theme-card {
+      border-radius: var(--radius);
+      padding: 20px;
+      border: 1px solid var(--gray-200);
+      transition: all 0.2s;
+    }
+    .theme-card:hover { box-shadow: var(--shadow); }
+    .theme-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .theme-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .theme-card h3 { font-size: 16px; font-weight: 700; }
+    .theme-card .theme-label { font-size: 12px; color: var(--slate-500); }
+    .theme-card .theme-desc { font-size: 13px; color: var(--gray-600); margin-bottom: 12px; line-height: 1.5; }
+    .theme-card .driver-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .theme-card .feature-list {
+      list-style: none;
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--gray-600);
+    }
+    .theme-card .feature-list li { padding: 2px 0; }
+    .theme-card .feature-list li::before { content: "\2022"; margin-right: 6px; }
+
+    /* Stacked bar note */
+    .chart-note {
+      font-size: 12px;
+      color: var(--slate-500);
+      font-style: italic;
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    /* Bubble chart */
+    .bubble-chart-container {
+      position: relative;
+      height: 500px;
+    }
+    .quadrant-labels {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .quadrant-label {
+      position: absolute;
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(0,0,0,0.08);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* Deep dive */
+    .deep-dive-placeholder {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--slate-500);
+      font-size: 15px;
+    }
+    .deep-dive-content { display: none; }
+    .deep-dive-content.active { display: block; }
+
+    .deep-dive-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    .product-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--gray-200);
+    }
+    .product-rank {
+      width: 56px; height: 56px;
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 800;
+      color: white;
+      flex-shrink: 0;
+    }
+    .product-meta h3 { font-size: 18px; font-weight: 700; }
+    .product-meta .score { font-size: 14px; color: var(--slate-500); }
+    .classification-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 16px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: auto;
+    }
+
+    .narrative-box {
+      background: var(--slate-50);
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--gray-700);
+      margin-bottom: 20px;
+    }
+    .narrative-box em {
+      display: block;
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: var(--amber-light);
+      border-radius: 6px;
+      font-style: normal;
+      font-size: 13px;
+      color: #92400e;
+    }
+
+    /* Feature bars */
+    .feature-group { margin-bottom: 16px; }
+    .feature-group-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+    .feature-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    .feature-label { width: 130px; flex-shrink: 0; color: var(--gray-600); }
+    .feature-bar-track {
+      flex: 1;
+      height: 20px;
+      background: var(--gray-100);
+      border-radius: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+    .feature-bar-fill {
+      height: 100%;
+      border-radius: 10px;
+      transition: width 0.4s ease;
+      display: flex;
+      align-items: center;
+      padding-left: 8px;
+      font-size: 11px;
+      color: white;
+      font-weight: 600;
+      min-width: 30px;
+    }
+    .feature-raw-value {
+      width: 80px;
+      text-align: right;
+      font-size: 12px;
+      color: var(--gray-500);
+      flex-shrink: 0;
+    }
+    .feature-bar-median {
+      position: absolute;
+      top: -2px;
+      bottom: -2px;
+      width: 2px;
+      background: var(--gray-800);
+      z-index: 2;
+    }
+    .feature-bar-median::after {
+      content: "";
+      position: absolute;
+      top: -3px;
+      left: -3px;
+      width: 8px;
+      height: 8px;
+      background: var(--gray-800);
+      border-radius: 50%;
+    }
+
+    /* Radar chart container */
+    .radar-container { height: 300px; position: relative; }
+
+    /* Comparison table */
+    .table-container {
+      overflow-x: auto;
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+    }
+    .comp-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .comp-table th {
+      background: var(--gray-50);
+      padding: 10px 12px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--gray-700);
+      border-bottom: 2px solid var(--gray-200);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .comp-table th:hover { background: var(--gray-100); }
+    .comp-table th .sort-arrow { margin-left: 4px; color: var(--gray-400); font-size: 10px; }
+    .comp-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--gray-100);
+      vertical-align: middle;
+    }
+    .comp-table tr { cursor: pointer; transition: background 0.15s; }
+    .comp-table tbody tr:hover { background: var(--blue-light); }
+    .comp-table tr.selected { background: var(--blue-light); box-shadow: inset 3px 0 0 var(--blue); }
+
+    .score-pill {
+      height: 8px;
+      border-radius: 4px;
+      background: var(--gray-200);
+      position: relative;
+      min-width: 80px;
+    }
+    .score-pill-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s;
+    }
+    .score-pill-label {
+      font-size: 11px;
+      color: var(--gray-500);
+      margin-top: 2px;
+    }
+
+    .cls-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* Search bar */
+    .search-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+      align-items: center;
+    }
+    .search-bar input {
+      padding: 8px 14px;
+      border: 1px solid var(--gray-300);
+      border-radius: 8px;
+      font-size: 13px;
+      width: 200px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-bar input:focus { border-color: var(--blue); }
+    .search-bar label { font-size: 13px; color: var(--slate-500); }
+
+    /* Legend for bubble chart */
+    .legend-row {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--slate-500);
+      flex-wrap: wrap;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-swatch {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      border: 2px solid rgba(0,0,0,0.1);
+    }
+    .momentum-gradient {
+      width: 80px; height: 12px;
+      border-radius: 6px;
+      background: linear-gradient(90deg, #3b82f6, #f9fafb, #f59e0b);
+    }
+
+    /* Stacked chart container */
+    .stacked-chart-wrapper {
+      height: 650px;
+      overflow-y: auto;
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .theme-cards { grid-template-columns: 1fr; }
+      .deep-dive-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>LPO Ranking Explorer</h1>
+    <div class="subtitle">Understanding how LPO ranks 60 products on your listing page</div>
+    <div class="listing-page">Listing Page: /-c1</div>
+  </div>
+
+  <div class="container">
+
+    <!-- SECTION 1: Ranking Overview -->
+    <div class="section" id="section-overview">
+      <div class="section-header">
+        <div class="section-number">1</div>
+        <h2>Ranking Overview</h2>
+      </div>
+      <div class="section-subtitle">The full ranking at a glance &mdash; how all 60 products stack up by LPO score</div>
+
+      <div class="exec-summary">
+        On this listing page, <strong>Historical Demand is the primary ranking driver</strong> &mdash; products with the highest volume of clicks, cart adds, and purchases consistently rank highest.
+        The top 12 "Page Leaders" average <strong>3&ndash;4&times;</strong> the engagement volume of the bottom 20.
+        Conversion efficiency plays a supporting role, while trending momentum has a more nuanced relationship with position.
+      </div>
+
+      <div class="tier-badges" id="tier-filters"></div>
+
+      <div class="ranking-chart-wrapper">
+        <canvas id="rankingChart"></canvas>
+      </div>
+    </div>
+
+    <!-- SECTION 2: What Drives the Ranking -->
+    <div class="section" id="section-themes">
+      <div class="section-header">
+        <div class="section-number" style="background: var(--green)">2</div>
+        <h2>What Drives the Ranking</h2>
+      </div>
+      <div class="section-subtitle">LPO evaluates products across three key dimensions that merchandisers can understand</div>
+
+      <div class="theme-cards" id="theme-cards"></div>
+
+      <h3 style="font-size:15px; margin-bottom:8px; color:var(--gray-800)">Theme Profile by Product</h3>
+      <p style="font-size:13px; color:var(--slate-500); margin-bottom:12px;">Each bar shows the product's relative strength in each theme (0&ndash;100 percentile scale)</p>
+
+      <div class="stacked-chart-wrapper">
+        <canvas id="stackedChart"></canvas>
+      </div>
+      <div class="chart-note">Theme scores show relative strengths on a 0&ndash;100 percentile scale. They represent how a product compares to others, not a decomposition of the LPO score.</div>
+    </div>
+
+    <!-- SECTION 3: Product Landscape -->
+    <div class="section" id="section-landscape">
+      <div class="section-header">
+        <div class="section-number" style="background: var(--amber)">3</div>
+        <h2>Product Landscape</h2>
+      </div>
+      <div class="section-subtitle">Where each product sits in terms of demand volume vs. conversion quality &mdash; bubble size reflects LPO score, color reflects momentum</div>
+
+      <div class="bubble-chart-container">
+        <canvas id="bubbleChart"></canvas>
+      </div>
+      <div class="legend-row">
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--blue)"></div> Low momentum</div>
+        <div class="legend-item"><div class="momentum-gradient"></div></div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--amber)"></div> High momentum</div>
+        <div class="legend-item" style="margin-left:16px">Bubble size = LPO Score</div>
+      </div>
+    </div>
+
+    <!-- SECTION 4: Product Deep Dive -->
+    <div class="section" id="section-deepdive">
+      <div class="section-header">
+        <div class="section-number" style="background: #7c3aed">4</div>
+        <h2>Product Deep Dive</h2>
+      </div>
+      <div class="section-subtitle">Click any product in the charts above to explore its ranking story</div>
+
+      <div class="deep-dive-placeholder" id="deepdive-placeholder">
+        <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="display:block; margin:0 auto 12px; color:var(--gray-300)"><path d="M15 15l5 5M10 17a7 7 0 100-14 7 7 0 000 14z"/></svg>
+        Select a product from any chart above to see a detailed breakdown of its ranking factors.
+      </div>
+
+      <div class="deep-dive-content" id="deepdive-content">
+        <div class="product-header" id="product-header"></div>
+        <div class="narrative-box" id="narrative-box"></div>
+        <div class="deep-dive-grid">
+          <div>
+            <h3 style="font-size:15px; margin-bottom:12px; color:var(--gray-800)">Theme Profile vs. Page Average</h3>
+            <div class="radar-container">
+              <canvas id="radarChart"></canvas>
+            </div>
+          </div>
+          <div>
+            <h3 style="font-size:15px; margin-bottom:12px; color:var(--gray-800)">Feature Breakdown</h3>
+            <div id="feature-breakdown"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 5: Comparison Table -->
+    <div class="section" id="section-table">
+      <div class="section-header">
+        <div class="section-number" style="background: var(--gray-500)">5</div>
+        <h2>Product Comparison</h2>
+      </div>
+      <div class="section-subtitle">Sortable table of all products &mdash; click any row to explore, click column headers to sort</div>
+
+      <div class="search-bar">
+        <label>Search product:</label>
+        <input type="text" id="product-search" placeholder="Enter product ID...">
+      </div>
+
+      <div class="table-container">
+        <table class="comp-table" id="comp-table">
+          <thead>
+            <tr>
+              <th data-sort="position">Pos <span class="sort-arrow">&#9650;</span></th>
+              <th data-sort="id">Product ID <span class="sort-arrow"></span></th>
+              <th data-sort="lpoScore">LPO Score <span class="sort-arrow"></span></th>
+              <th data-sort="popularity">Popularity <span class="sort-arrow"></span></th>
+              <th data-sort="engagement">Engagement <span class="sort-arrow"></span></th>
+              <th data-sort="momentum">Momentum <span class="sort-arrow"></span></th>
+              <th data-sort="classification">Type <span class="sort-arrow"></span></th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // =====================================================
+    // Global State
+    // =====================================================
+    const state = {
+      selectedIndex: null,
+      tierFilter: null,
+      sortField: "position",
+      sortAsc: true,
+      listeners: [],
+      subscribe(fn) { this.listeners.push(fn); },
+      notify() { this.listeners.forEach(fn => fn()); }
+    };
+
+    function selectProduct(index) {
+      state.selectedIndex = index;
+      state.notify();
+    }
+
+    // =====================================================
+    // Color helpers
+    // =====================================================
+    function themeColor(themeKey, alpha = 1) {
+      const colors = { popularity: `rgba(59,130,246,${alpha})`, engagement: `rgba(16,185,129,${alpha})`, momentum: `rgba(245,158,11,${alpha})` };
+      return colors[themeKey];
+    }
+
+    function momentumColor(momScore) {
+      // Blue (low) -> Gray (mid) -> Amber (high)
+      if (momScore <= 0.5) {
+        const t = momScore / 0.5;
+        const r = Math.round(59 + (156 - 59) * t);
+        const g = Math.round(130 + (163 - 130) * t);
+        const b = Math.round(246 + (175 - 246) * t);
+        return `rgb(${r},${g},${b})`;
+      } else {
+        const t = (momScore - 0.5) / 0.5;
+        const r = Math.round(156 + (245 - 156) * t);
+        const g = Math.round(163 + (158 - 163) * t);
+        const b = Math.round(175 + (11 - 175) * t);
+        return `rgb(${r},${g},${b})`;
+      }
+    }
+
+    function tierBgColor(position) {
+      if (position <= 12) return "rgba(59,130,246,0.06)";
+      if (position <= 40) return "rgba(107,114,128,0.04)";
+      return "rgba(245,158,11,0.06)";
+    }
+
+    // =====================================================
+    // Section 1: Ranking Overview
+    // =====================================================
+    function initTierFilters() {
+      const container = document.getElementById("tier-filters");
+      TIERS.forEach(tier => {
+        const badge = document.createElement("div");
+        badge.className = "tier-badge";
+        badge.style.background = tier.bgColor;
+        badge.style.color = tier.color;
+        badge.innerHTML = `<span class="dot" style="background:${tier.color}"></span>${tier.name} (${tier.range[0]}&ndash;${tier.range[1]})`;
+        badge.onclick = () => {
+          if (state.tierFilter === tier.name) {
+            state.tierFilter = null;
+            badge.classList.remove("active");
+          } else {
+            state.tierFilter = tier.name;
+            container.querySelectorAll(".tier-badge").forEach(b => b.classList.remove("active"));
+            badge.classList.add("active");
+          }
+          state.notify();
+        };
+        container.appendChild(badge);
+      });
+      // "All" button
+      const allBadge = document.createElement("div");
+      allBadge.className = "tier-badge active";
+      allBadge.style.background = "var(--gray-100)";
+      allBadge.style.color = "var(--gray-600)";
+      allBadge.innerHTML = `All (60)`;
+      allBadge.onclick = () => {
+        state.tierFilter = null;
+        container.querySelectorAll(".tier-badge").forEach(b => b.classList.remove("active"));
+        allBadge.classList.add("active");
+        state.notify();
+      };
+      container.prepend(allBadge);
+    }
+
+    let rankingChart;
+    function initRankingChart() {
+      const ctx = document.getElementById("rankingChart").getContext("2d");
+      const labels = PRODUCTS.map(p => `#${p.position}`);
+      const scores = PRODUCTS.map(p => p.lpoScore);
+      const colors = PRODUCTS.map(p => themeColor(p.dominantTheme, 0.8));
+      const borderColors = PRODUCTS.map(p => themeColor(p.dominantTheme, 1));
+
+      rankingChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [{
+            data: scores,
+            backgroundColor: colors,
+            borderColor: borderColors,
+            borderWidth: 1,
+            borderRadius: 4,
+            borderSkipped: false
+          }]
+        },
+        options: {
+          indexAxis: "y",
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: (items) => {
+                  const i = items[0].dataIndex;
+                  const p = PRODUCTS[i];
+                  const cls = CLASSIFICATIONS[p.classification];
+                  return `#${p.position} \u2014 Product ${p.id}`;
+                },
+                label: (item) => {
+                  const p = PRODUCTS[item.dataIndex];
+                  const cls = CLASSIFICATIONS[p.classification];
+                  return [
+                    `LPO Score: ${p.lpoScore.toFixed(1)}`,
+                    `Type: ${cls.label}`,
+                    `Tier: ${p.tier.name}`
+                  ];
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              min: 140,
+              title: { display: true, text: "LPO Score", font: { size: 12 } },
+              grid: { color: "rgba(0,0,0,0.04)" }
+            },
+            y: {
+              grid: { display: false },
+              ticks: { font: { size: 11 } }
+            }
+          },
+          onClick: (evt, elements) => {
+            if (elements.length > 0) {
+              selectProduct(elements[0].index);
+            }
+          }
+        }
+      });
+
+      // Set canvas height to fit all bars
+      document.getElementById("rankingChart").style.height = (PRODUCTS.length * 18 + 60) + "px";
+    }
+
+    // =====================================================
+    // Section 2: Theme Cards
+    // =====================================================
+    function initThemeCards() {
+      const container = document.getElementById("theme-cards");
+      const icons = { popularity: "\uD83D\uDED2", engagement: "\uD83C\uDFAF", momentum: "\uD83D\uDE80" };
+      const driverColors = { "Primary Driver": "var(--blue)", "Supporting Factor": "var(--green)", "Nuanced Role": "var(--amber)" };
+      const driverBgs = { "Primary Driver": "var(--blue-light)", "Supporting Factor": "var(--green-light)", "Nuanced Role": "var(--amber-light)" };
+
+      for (const [key, theme] of Object.entries(THEMES)) {
+        const card = document.createElement("div");
+        card.className = "theme-card";
+        card.style.borderTop = `3px solid ${theme.color}`;
+
+        const featuresHtml = theme.features.map(f => `<li>${f.label}</li>`).join("");
+        card.innerHTML = `
+          <div class="theme-card-header">
+            <div class="theme-icon" style="background:${theme.colorLight}">${icons[key]}</div>
+            <div>
+              <h3 style="color:${theme.color}">${theme.name}</h3>
+              <div class="theme-label">${theme.shortName}</div>
+            </div>
+          </div>
+          <div class="theme-desc">${theme.description}</div>
+          <div class="driver-badge" style="background:${driverBgs[theme.driver]};color:${driverColors[theme.driver]}">${theme.driver}</div>
+          <ul class="feature-list">${featuresHtml}</ul>
+        `;
+        container.appendChild(card);
+      }
+    }
+
+    // =====================================================
+    // Section 2: Stacked Bar Chart
+    // =====================================================
+    let stackedChart;
+    function initStackedChart() {
+      const ctx = document.getElementById("stackedChart").getContext("2d");
+      const labels = PRODUCTS.map(p => `#${p.position}`);
+
+      stackedChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Popularity",
+              data: PRODUCTS.map(p => Math.round(p.popularity * 100)),
+              backgroundColor: "rgba(59,130,246,0.75)",
+              borderRadius: 2
+            },
+            {
+              label: "Engagement",
+              data: PRODUCTS.map(p => Math.round(p.engagement * 100)),
+              backgroundColor: "rgba(16,185,129,0.75)",
+              borderRadius: 2
+            },
+            {
+              label: "Momentum",
+              data: PRODUCTS.map(p => Math.round(p.momentum * 100)),
+              backgroundColor: "rgba(245,158,11,0.75)",
+              borderRadius: 2
+            }
+          ]
+        },
+        options: {
+          indexAxis: "y",
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: "top",
+              labels: { usePointStyle: true, pointStyle: "circle", padding: 16, font: { size: 12 } }
+            },
+            tooltip: {
+              callbacks: {
+                title: (items) => {
+                  const i = items[0].dataIndex;
+                  return `#${PRODUCTS[i].position} \u2014 Product ${PRODUCTS[i].id}`;
+                },
+                label: (item) => `${item.dataset.label}: ${item.raw}/100`
+              }
+            }
+          },
+          scales: {
+            x: {
+              stacked: true,
+              max: 300,
+              title: { display: true, text: "Combined Theme Score (percentile)", font: { size: 12 } },
+              grid: { color: "rgba(0,0,0,0.04)" }
+            },
+            y: {
+              stacked: true,
+              grid: { display: false },
+              ticks: { font: { size: 11 } }
+            }
+          },
+          onClick: (evt, elements) => {
+            if (elements.length > 0) {
+              selectProduct(elements[0].index);
+            }
+          }
+        }
+      });
+
+      document.getElementById("stackedChart").style.height = (PRODUCTS.length * 18 + 60) + "px";
+    }
+
+    // =====================================================
+    // Section 3: Bubble Chart
+    // =====================================================
+    let bubbleChart;
+    function initBubbleChart() {
+      const ctx = document.getElementById("bubbleChart").getContext("2d");
+      const minScore = 148, maxScore = 286;
+
+      const bubbleData = PRODUCTS.map(p => ({
+        x: p.popularity * 100,
+        y: p.engagement * 100,
+        r: 6 + ((p.lpoScore - minScore) / (maxScore - minScore)) * 18
+      }));
+
+      const bgColors = PRODUCTS.map(p => {
+        const c = momentumColor(p.momentum);
+        return c.replace("rgb", "rgba").replace(")", ",0.7)");
+      });
+      const borderC = PRODUCTS.map(p => momentumColor(p.momentum));
+
+      bubbleChart = new Chart(ctx, {
+        type: "bubble",
+        data: {
+          datasets: [{
+            data: bubbleData,
+            backgroundColor: bgColors,
+            borderColor: borderC,
+            borderWidth: 1.5
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: () => "",
+                label: (item) => {
+                  const p = PRODUCTS[item.dataIndex];
+                  const cls = CLASSIFICATIONS[p.classification];
+                  return [
+                    `#${p.position} \u2014 Product ${p.id}`,
+                    `LPO Score: ${p.lpoScore.toFixed(1)}`,
+                    `Popularity: ${Math.round(p.popularity * 100)}/100`,
+                    `Engagement: ${Math.round(p.engagement * 100)}/100`,
+                    `Momentum: ${Math.round(p.momentum * 100)}/100`,
+                    `Type: ${cls.label}`
+                  ];
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              min: 0, max: 100,
+              title: { display: true, text: "Historical Demand (Popularity Percentile)", font: { size: 12, weight: "bold" } },
+              grid: { color: "rgba(0,0,0,0.05)" },
+              ticks: { callback: v => v + "%" }
+            },
+            y: {
+              min: 0, max: 100,
+              title: { display: true, text: "Conversion Efficiency (Engagement Percentile)", font: { size: 12, weight: "bold" } },
+              grid: { color: "rgba(0,0,0,0.05)" },
+              ticks: { callback: v => v + "%" }
+            }
+          },
+          onClick: (evt, elements) => {
+            if (elements.length > 0) {
+              selectProduct(elements[0].index);
+            }
+          }
+        },
+        plugins: [{
+          id: "quadrantLabels",
+          beforeDraw(chart) {
+            const { ctx, chartArea: { left, right, top, bottom } } = chart;
+            const midX = (left + right) / 2;
+            const midY = (top + bottom) / 2;
+
+            ctx.save();
+            ctx.font = "bold 14px -apple-system, sans-serif";
+            ctx.fillStyle = "rgba(0,0,0,0.06)";
+            ctx.textAlign = "center";
+
+            // Draw quadrant lines
+            ctx.strokeStyle = "rgba(0,0,0,0.06)";
+            ctx.lineWidth = 1;
+            ctx.setLineDash([6, 4]);
+            ctx.beginPath();
+            ctx.moveTo(midX, top);
+            ctx.lineTo(midX, bottom);
+            ctx.moveTo(left, midY);
+            ctx.lineTo(right, midY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Quadrant labels
+            ctx.fillText("BEST SELLERS", midX + (right - midX) / 2, top + 24);
+            ctx.fillText("HIDDEN GEMS", left + (midX - left) / 2, top + 24);
+            ctx.fillText("VOLUME PLAYERS", midX + (right - midX) / 2, bottom - 12);
+            ctx.fillText("NEEDS ATTENTION", left + (midX - left) / 2, bottom - 12);
+
+            ctx.restore();
+          }
+        }]
+      });
+    }
+
+    // =====================================================
+    // Section 4: Deep Dive
+    // =====================================================
+    let radarChart;
+    function initRadarChart() {
+      const ctx = document.getElementById("radarChart").getContext("2d");
+      radarChart = new Chart(ctx, {
+        type: "radar",
+        data: {
+          labels: ["Historical Demand", "Conversion Efficiency", "Trending Direction"],
+          datasets: [
+            {
+              label: "Selected Product",
+              data: [50, 50, 50],
+              backgroundColor: "rgba(59,130,246,0.2)",
+              borderColor: "rgba(59,130,246,1)",
+              borderWidth: 2,
+              pointBackgroundColor: "rgba(59,130,246,1)",
+              pointRadius: 5
+            },
+            {
+              label: "Page Average",
+              data: [
+                Math.round(pageAvg.popularity * 100),
+                Math.round(pageAvg.engagement * 100),
+                Math.round(pageAvg.momentum * 100)
+              ],
+              backgroundColor: "rgba(107,114,128,0.1)",
+              borderColor: "rgba(107,114,128,0.5)",
+              borderWidth: 2,
+              borderDash: [5, 5],
+              pointBackgroundColor: "rgba(107,114,128,0.5)",
+              pointRadius: 4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            r: {
+              min: 0, max: 100,
+              ticks: { stepSize: 25, font: { size: 10 }, backdropColor: "transparent" },
+              grid: { color: "rgba(0,0,0,0.06)" },
+              pointLabels: { font: { size: 12, weight: "bold" } }
+            }
+          },
+          plugins: {
+            legend: {
+              position: "bottom",
+              labels: { usePointStyle: true, pointStyle: "circle", font: { size: 12 } }
+            }
+          }
+        }
+      });
+    }
+
+    function updateDeepDive(index) {
+      const placeholder = document.getElementById("deepdive-placeholder");
+      const content = document.getElementById("deepdive-content");
+
+      if (index === null) {
+        placeholder.style.display = "block";
+        content.classList.remove("active");
+        return;
+      }
+
+      placeholder.style.display = "none";
+      content.classList.add("active");
+
+      const p = PRODUCTS[index];
+      const cls = CLASSIFICATIONS[p.classification];
+      const tier = p.tier;
+
+      // Product header
+      document.getElementById("product-header").innerHTML = `
+        <div class="product-rank" style="background:${tier.color}">${p.position}</div>
+        <div class="product-meta">
+          <h3>Product ${p.id}</h3>
+          <div class="score">LPO Score: ${p.lpoScore.toFixed(1)} &bull; ${tier.name}</div>
+        </div>
+        <div class="classification-badge" style="background:${cls.bgColor};color:${cls.color}">${cls.label}</div>
+      `;
+
+      // Narrative
+      const narrative = generateProductNarrative(p, p.popularity, p.engagement, p.momentum, p.classification);
+      document.getElementById("narrative-box").innerHTML = narrative;
+
+      // Radar chart
+      radarChart.data.datasets[0].data = [
+        Math.round(p.popularity * 100),
+        Math.round(p.engagement * 100),
+        Math.round(p.momentum * 100)
+      ];
+      radarChart.update();
+
+      // Feature breakdown
+      const breakdown = document.getElementById("feature-breakdown");
+      let html = "";
+
+      for (const [themeKey, theme] of Object.entries(THEMES)) {
+        html += `<div class="feature-group">
+          <div class="feature-group-title" style="background:${theme.colorLight};color:${theme.color}">${theme.name}</div>`;
+
+        for (const feat of theme.features) {
+          const pctile = featurePercentiles[feat.key][index];
+          const pctileRound = Math.round(pctile * 100);
+          const rawVal = FEATURE_CONFIG[feat.key].format(p[feat.key]);
+          const medianPctile = 50;
+
+          html += `<div class="feature-bar-row">
+            <div class="feature-label">${feat.label}</div>
+            <div class="feature-bar-track">
+              <div class="feature-bar-fill" style="width:${Math.max(pctileRound, 3)}%;background:${theme.color}">${pctileRound}</div>
+              <div class="feature-bar-median" style="left:50%" title="Page median"></div>
+            </div>
+            <div class="feature-raw-value">${rawVal}</div>
+          </div>`;
+        }
+
+        html += "</div>";
+      }
+
+      breakdown.innerHTML = html;
+    }
+
+    // =====================================================
+    // Section 5: Comparison Table
+    // =====================================================
+    function renderTable() {
+      const tbody = document.getElementById("table-body");
+      const searchVal = document.getElementById("product-search").value.trim().toLowerCase();
+
+      let products = PRODUCTS.map((p, i) => ({ ...p, _index: i }));
+
+      // Filter by search
+      if (searchVal) {
+        products = products.filter(p => p.id.toLowerCase().includes(searchVal));
+      }
+
+      // Sort
+      const field = state.sortField;
+      products.sort((a, b) => {
+        let va = a[field], vb = b[field];
+        if (field === "classification") {
+          va = CLASSIFICATIONS[a.classification].label;
+          vb = CLASSIFICATIONS[b.classification].label;
+        }
+        if (typeof va === "string") return state.sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+        return state.sortAsc ? va - vb : vb - va;
+      });
+
+      tbody.innerHTML = products.map(p => {
+        const cls = CLASSIFICATIONS[p.classification];
+        const isSelected = state.selectedIndex === p._index;
+        return `<tr class="${isSelected ? "selected" : ""}" data-index="${p._index}">
+          <td style="font-weight:700;color:${p.tier.color}">${p.position}</td>
+          <td style="font-family:monospace;font-size:12px">${p.id}</td>
+          <td><strong>${p.lpoScore.toFixed(1)}</strong></td>
+          <td>
+            <div class="score-pill"><div class="score-pill-fill" style="width:${Math.round(p.popularity * 100)}%;background:var(--blue)"></div></div>
+            <div class="score-pill-label">${Math.round(p.popularity * 100)}/100</div>
+          </td>
+          <td>
+            <div class="score-pill"><div class="score-pill-fill" style="width:${Math.round(p.engagement * 100)}%;background:var(--green)"></div></div>
+            <div class="score-pill-label">${Math.round(p.engagement * 100)}/100</div>
+          </td>
+          <td>
+            <div class="score-pill"><div class="score-pill-fill" style="width:${Math.round(p.momentum * 100)}%;background:var(--amber)"></div></div>
+            <div class="score-pill-label">${Math.round(p.momentum * 100)}/100</div>
+          </td>
+          <td><span class="cls-badge" style="background:${cls.bgColor};color:${cls.color}">${cls.label}</span></td>
+        </tr>`;
+      }).join("");
+
+      // Row click handlers
+      tbody.querySelectorAll("tr").forEach(tr => {
+        tr.addEventListener("click", () => {
+          selectProduct(parseInt(tr.dataset.index));
+        });
+      });
+    }
+
+    function initTableSort() {
+      document.querySelectorAll("#comp-table th").forEach(th => {
+        th.addEventListener("click", () => {
+          const field = th.dataset.sort;
+          if (state.sortField === field) {
+            state.sortAsc = !state.sortAsc;
+          } else {
+            state.sortField = field;
+            state.sortAsc = true;
+          }
+          // Update arrows
+          document.querySelectorAll("#comp-table th .sort-arrow").forEach(s => s.textContent = "");
+          th.querySelector(".sort-arrow").textContent = state.sortAsc ? "\u25B2" : "\u25BC";
+          renderTable();
+        });
+      });
+    }
+
+    // =====================================================
+    // Cross-chart State Updates
+    // =====================================================
+    function updateChartHighlights() {
+      const sel = state.selectedIndex;
+
+      // Ranking chart
+      if (rankingChart) {
+        const colors = PRODUCTS.map((p, i) => {
+          if (sel !== null && sel !== i) return themeColor(p.dominantTheme, 0.15);
+          return themeColor(p.dominantTheme, 0.8);
+        });
+        const borders = PRODUCTS.map((p, i) => {
+          if (sel !== null && sel === i) return "#111827";
+          if (sel !== null) return themeColor(p.dominantTheme, 0.15);
+          return themeColor(p.dominantTheme, 1);
+        });
+        const borderWidths = PRODUCTS.map((_, i) => sel === i ? 3 : 1);
+        rankingChart.data.datasets[0].backgroundColor = colors;
+        rankingChart.data.datasets[0].borderColor = borders;
+        rankingChart.data.datasets[0].borderWidth = borderWidths;
+        rankingChart.update("none");
+      }
+
+      // Stacked chart
+      if (stackedChart) {
+        stackedChart.data.datasets.forEach((ds, di) => {
+          const themeKeys = ["popularity", "engagement", "momentum"];
+          const baseAlpha = 0.75;
+          ds.backgroundColor = PRODUCTS.map((_, i) => {
+            if (sel !== null && sel !== i) return themeColor(themeKeys[di], 0.1);
+            return themeColor(themeKeys[di], baseAlpha);
+          });
+        });
+        stackedChart.update("none");
+      }
+
+      // Bubble chart
+      if (bubbleChart) {
+        const bgColors = PRODUCTS.map((p, i) => {
+          const c = momentumColor(p.momentum);
+          const alpha = (sel !== null && sel !== i) ? 0.12 : 0.7;
+          return c.replace("rgb", "rgba").replace(")", `,${alpha})`);
+        });
+        const borderC = PRODUCTS.map((p, i) => {
+          if (sel !== null && sel === i) return "#111827";
+          if (sel !== null) return momentumColor(p.momentum).replace("rgb", "rgba").replace(")", ",0.15)");
+          return momentumColor(p.momentum);
+        });
+        const borderW = PRODUCTS.map((_, i) => sel === i ? 3 : 1.5);
+        bubbleChart.data.datasets[0].backgroundColor = bgColors;
+        bubbleChart.data.datasets[0].borderColor = borderC;
+        bubbleChart.data.datasets[0].borderWidth = borderW;
+        bubbleChart.update("none");
+      }
+    }
+
+    // =====================================================
+    // Initialize Everything
+    // =====================================================
+    document.addEventListener("DOMContentLoaded", () => {
+      initTierFilters();
+      initRankingChart();
+      initThemeCards();
+      initStackedChart();
+      initBubbleChart();
+      initRadarChart();
+      initTableSort();
+      renderTable();
+
+      // Search input
+      document.getElementById("product-search").addEventListener("input", renderTable);
+
+      // State subscription
+      state.subscribe(() => {
+        updateChartHighlights();
+        updateDeepDive(state.selectedIndex);
+        renderTable();
+
+        // Scroll to deep dive when product selected
+        if (state.selectedIndex !== null) {
+          document.getElementById("section-deepdive").scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>
